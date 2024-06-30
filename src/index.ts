@@ -1,18 +1,59 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.toml`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { AutoRouter, cors, error, IRequest, json } from 'itty-router';
+import { nanoid } from 'nanoid';
+import { LogServerPUTDumpResponse, LogServerResponse } from '~types/api';
 
-export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World!');
-	},
-} satisfies ExportedHandler<Env>;
+const response = <T>(data: LogServerResponse<T>, init?: ResponseInit) => {
+	if (data.status !== 200) {
+		const { status, ...rest } = data;
+		return error(status, rest);
+	}
+	return json(data, init);
+};
+
+type Application = {
+	name: string;
+	prefix: string;
+};
+
+const verifyRequest = async (request: Request & IRequest, env: Env): Promise<Response | undefined> => {
+	const header = request.headers.get('Authorization');
+	if (!header || header.substring(0, 6) !== 'Bearer') {
+		return response({
+			status: 403,
+			code: 'auth_error',
+			message: 'Must specify Bearer token.',
+		});
+	}
+
+	const token = header.substring(6).trim();
+	const application = await env.TOKENS.get<Application>(token, 'json');
+
+	if (!application) {
+		return response({
+			status: 403,
+			code: 'auth_error',
+			message: 'Invalid Bearer token.',
+		});
+	}
+
+	request.application = application;
+};
+
+type VerifiedRequest = Request & IRequest & { application: Application };
+
+const { preflight, corsify } = cors();
+const router = AutoRouter<VerifiedRequest, [Env]>({
+	before: [preflight, verifyRequest],
+	finally: [corsify],
+});
+
+router.put('/dump', async (request, env) => {
+	const correlation = request.application.prefix + '_' + nanoid(6);
+	await env.LOGS.put(correlation, request.body);
+	return response<LogServerPUTDumpResponse>({
+		status: 200,
+		correlation,
+	});
+});
+
+export default { ...router };

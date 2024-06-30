@@ -93,7 +93,7 @@ id = "d01fde51ceea41a3ae667032fb2814eb"
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#r2-buckets
 [[r2_buckets]]
 binding = "LOGS"
-bucket_name = "LOGS"
+bucket_name = "logs"
 
 # Bind another Worker service. Use this binding to call another Worker without network overhead.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

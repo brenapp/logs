@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "itty-router": "^5.0.17",
+    "mimetext": "^3.0.24",
     "nanoid": "^5.0.7"
   }
 }

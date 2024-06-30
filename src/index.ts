@@ -1,3 +1,5 @@
+import { EmailMessage } from 'cloudflare:email';
+import { createMimeMessage } from 'mimetext/browser';
 import { AutoRouter, cors, error, IRequest, json } from 'itty-router';
 import { nanoid } from 'nanoid';
 import { LogServerPUTDumpResponse, LogServerResponse } from '~types/api';
@@ -50,6 +52,24 @@ const router = AutoRouter<VerifiedRequest, [Env]>({
 router.put('/dump', async (request, env) => {
 	const correlation = request.application.prefix + '_' + nanoid(6);
 	await env.LOGS.put(correlation, request.body);
+
+	const message = createMimeMessage();
+	message.setSender({ name: 'Issue Reporting', addr: 'issue-reporting@referee.fyi' });
+	message.setRecipient('brendan@bren.app');
+	message.setSubject(`Issue Report - ${request.application.name} - ${correlation}`);
+	message.addMessage({
+		contentType: 'text/plain',
+		data: `An issue has been reported for ${request.application.name} with Correlation ID '${correlation}'`,
+	});
+
+	const email = new EmailMessage('issue-reporting@referee.fyi', 'brendan@bren.app', message.asRaw());
+
+	try {
+		await env.EMAIL.send(email);
+	} catch (e) {
+		console.log(e);
+	}
+
 	return response<LogServerPUTDumpResponse>({
 		status: 200,
 		correlation,

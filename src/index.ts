@@ -53,13 +53,20 @@ router.put('/dump', async (request, env) => {
 	const correlation = request.application.prefix + '_' + nanoid(6);
 	await env.LOGS.put(correlation, request.body);
 
+	let frontmatter = '';
+	try {
+		frontmatter = Object.entries(JSON.parse(request.headers.get('X-Log-Server-Frontmatter') ?? '{}'))
+			.map(([key, value]) => `${key}: ${value}`)
+			.join('\n');
+	} catch (e) {}
+
 	const message = createMimeMessage();
 	message.setSender({ name: 'Issue Reporting', addr: 'issue-reporting@referee.fyi' });
 	message.setRecipient('brendan@bren.app');
 	message.setSubject(`Issue Report - ${request.application.name} - ${correlation}`);
 	message.addMessage({
 		contentType: 'text/plain',
-		data: `An issue has been reported for ${request.application.name} with Correlation ID '${correlation}'`,
+		data: `An issue has been reported for ${request.application.name} with Correlation ID '${correlation}'\n\n${frontmatter}`,
 	});
 
 	const email = new EmailMessage('issue-reporting@referee.fyi', 'brendan@bren.app', message.asRaw());

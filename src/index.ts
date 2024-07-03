@@ -50,7 +50,7 @@ const router = AutoRouter<VerifiedRequest, [Env]>({
 });
 
 router.put('/dump', async (request, env) => {
-	const correlation = request.application.prefix + '_' + nanoid(6);
+	const correlation = request.application.prefix + '/' + nanoid(6);
 	await env.LOGS.put(correlation, request.body);
 
 	let frontmatter = '';
